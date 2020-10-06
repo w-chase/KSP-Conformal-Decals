@@ -271,7 +271,7 @@ namespace ConformalDecals {
             _decalTextureProperty.SetTile(output.Window);
 
             UpdateMaterials();
-            UpdateScale();
+            UpdateProjection();
         }
 
         protected override void UpdateMaterials() {

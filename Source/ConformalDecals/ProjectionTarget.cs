@@ -5,6 +5,7 @@ namespace ConformalDecals {
     public class ProjectionTarget {
         // Target object data
         public readonly Transform target;
+        public readonly Part targetPart;
 
         private readonly Renderer _targetRenderer;
         private readonly Mesh     _targetMesh;
@@ -13,8 +14,9 @@ namespace ConformalDecals {
         // property block
         private readonly MaterialPropertyBlock _decalMPB;
 
-        public ProjectionTarget(MeshRenderer targetRenderer, Mesh targetMesh) {
-            target = targetRenderer.transform;
+        public ProjectionTarget(Part targetPart, MeshRenderer targetRenderer, Mesh targetMesh) {
+            this.targetPart = targetPart;
+            this.target = targetRenderer.transform;
             _targetRenderer = targetRenderer;
             _targetMesh = targetMesh;
             _decalMPB = new MaterialPropertyBlock();

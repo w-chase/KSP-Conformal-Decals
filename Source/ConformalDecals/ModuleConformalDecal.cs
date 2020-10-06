@@ -79,7 +79,7 @@ namespace ConformalDecals {
          UI_FloatRange()]
         public float wear = 100;
 
-        [KSPField(isPersistant = true)] public bool projectMultiple; // reserved for future features. do not modify
+        [KSPField(isPersistant = true)] public bool projectMultiple = true;
 
         [KSPField] public MaterialPropertyCollection materialProperties;
 
@@ -215,13 +215,13 @@ namespace ConformalDecals {
             foreach (var keyword in _decalMaterial.shaderKeywords) {
                 this.Log($"keyword: {keyword}");
             }
-            
+
             if (HighLogic.LoadedSceneIsEditor) {
                 UpdateTweakables();
             }
 
             if (HighLogic.LoadedSceneIsGame) {
-                UpdateScale();
+                UpdateProjection();
             }
             else {
                 scale = defaultScale;
@@ -237,7 +237,7 @@ namespace ConformalDecals {
 
         /// <inheritdoc />
         public override void OnIconCreate() {
-            UpdateScale();
+            UpdateProjection();
         }
 
         /// <inheritdoc />
@@ -304,11 +304,11 @@ namespace ConformalDecals {
         protected void OnSizeTweakEvent(BaseField field, object obj) {
             // scale or depth values have been changed, so update scale
             // and update projection matrices if attached
-            UpdateScale();
+            UpdateProjection();
 
             foreach (var counterpart in part.symmetryCounterparts) {
                 var decal = counterpart.GetComponent<ModuleConformalDecal>();
-                decal.UpdateScale();
+                decal.UpdateProjection();
             }
         }
 
@@ -331,7 +331,7 @@ namespace ConformalDecals {
 
         protected void OnVariantApplied(Part eventPart, PartVariant variant) {
             if (_isAttached && eventPart == part.parent) {
-                UpdateTargets();
+                UpdateProjection();
             }
         }
 
@@ -346,7 +346,7 @@ namespace ConformalDecals {
                     break;
                 case ConstructionEventType.PartOffsetting:
                 case ConstructionEventType.PartRotating:
-                    UpdateScale();
+                    UpdateProjection();
                     break;
             }
         }
@@ -377,8 +377,7 @@ namespace ConformalDecals {
             Camera.onPreCull += Render;
 
             UpdateMaterials();
-            UpdateTargets();
-            UpdateScale();
+            UpdateProjection();
         }
 
         protected virtual void OnDetach() {
@@ -394,10 +393,57 @@ namespace ConformalDecals {
             Camera.onPreCull -= Render;
 
             UpdateMaterials();
-            UpdateScale();
+            UpdateProjection();
         }
 
-        protected void UpdateScale() {
+        protected void UpdateProjection() {
+            // Update projection targets
+            if (_targets == null) {
+                _targets = new List<ProjectionTarget>();
+            }
+            else {
+                _targets.Clear();
+            }
+
+            if (_isAttached) {
+                IEnumerable<Part> targetParts;
+                if (projectMultiple) {
+                    if (HighLogic.LoadedSceneIsFlight) {
+                        targetParts = part.vessel.parts;
+                    }
+                    else {
+                        targetParts = EditorLogic.fetch.ship.parts;
+                    }
+                }
+                else {
+                    targetParts = new[] {part.parent};
+                }
+
+                foreach (var targetPart in targetParts) {
+                    if (targetPart.GetComponent<ModuleConformalDecal>() != null) continue; // skip other decals
+
+                    foreach (var targetRenderer in targetPart.FindModelComponents<MeshRenderer>()) {
+                        // skip disabled renderers
+                        if (targetRenderer.gameObject.activeInHierarchy == false) continue;
+
+                        // skip blacklisted shaders
+                        if (DecalConfig.IsBlacklisted(targetRenderer.material.shader)) continue;
+
+                        var meshFilter = targetRenderer.GetComponent<MeshFilter>();
+                        if (meshFilter == null) continue; // object has a meshRenderer with no filter, invalid
+                        var mesh = meshFilter.sharedMesh;
+                        if (mesh == null) continue; // object has a null mesh, invalid
+
+                        // create new ProjectionTarget to represent the renderer
+                        var target = new ProjectionTarget(targetPart, targetRenderer, mesh);
+
+                        // add the target to the list
+                        _targets.Add(target);
+                    }
+                }
+            }
+
+            // Update projection matrix
             scale = Mathf.Max(0.01f, scale);
             depth = Mathf.Max(0.01f, depth);
             var aspectRatio = materialProperties.AspectRatio;
@@ -466,36 +512,6 @@ namespace ConformalDecals {
             _previewMaterial = materialProperties.PreviewMaterial;
 
             if (!_isAttached) decalFrontTransform.GetComponent<MeshRenderer>().material = _previewMaterial;
-        }
-
-        protected void UpdateTargets() {
-            if (_targets == null) {
-                _targets = new List<ProjectionTarget>();
-            }
-            else {
-                _targets.Clear();
-            }
-
-            // find all valid renderers
-            var renderers = part.parent.FindModelComponents<MeshRenderer>();
-            foreach (var renderer in renderers) {
-                // skip disabled renderers
-                if (renderer.gameObject.activeInHierarchy == false) continue;
-
-                // skip blacklisted shaders
-                if (DecalConfig.IsBlacklisted(renderer.material.shader)) continue;
-
-                var meshFilter = renderer.GetComponent<MeshFilter>();
-                if (meshFilter == null) continue; // object has a meshRenderer with no filter, invalid
-                var mesh = meshFilter.mesh;
-                if (mesh == null) continue; // object has a null mesh, invalid
-
-                // create new ProjectionTarget to represent the renderer
-                var target = new ProjectionTarget(renderer, mesh);
-
-                // add the target to the list
-                _targets.Add(target);
-            }
         }
 
         protected virtual void UpdateTweakables() {

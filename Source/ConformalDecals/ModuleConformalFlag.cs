@@ -95,7 +95,7 @@ namespace ConformalDecals {
             materialProperties.AddOrGetTextureProperty("_Decal", true).TextureUrl = newFlagUrl;
 
             UpdateMaterials();
-            UpdateScale();
+            UpdateProjection();
         }
 
         private void SetFlagSymmetryCounterparts(string newFlagUrl) {
