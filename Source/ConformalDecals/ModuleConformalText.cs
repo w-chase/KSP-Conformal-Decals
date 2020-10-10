@@ -98,8 +98,6 @@ namespace ConformalDecals {
         public override void OnLoad(ConfigNode node) {
             base.OnLoad(node);
             OnAfterDeserialize();
-
-            UpdateTextRecursive();
         }
 
         public override void OnSave(ConfigNode node) {
@@ -107,15 +105,22 @@ namespace ConformalDecals {
             base.OnSave(node);
         }
 
-        public override void OnStart(StartState state) {
-            base.OnStart(state);
-
-            UpdateTextRecursive();
-        }
-
         public override void OnAwake() {
             base.OnAwake();
 
+            _font = DecalConfig.GetFont(fontName);
+            _style = new DecalTextStyle((FontStyles) style, vertical, lineSpacing, charSpacing);
+            
+            if (!ParseUtil.TryParseColor32(fillColor, out _fillColor)) {
+                Logging.LogWarning($"Improperly formatted color value for fill: '{fillColor}'");
+                _fillColor = Color.magenta;
+            }
+
+            if (!ParseUtil.TryParseColor32(outlineColor, out _outlineColor)) {
+                Logging.LogWarning($"Improperly formatted color value for outline: '{outlineColor}'");
+                _outlineColor = Color.magenta;
+            }
+            
             _decalTextureProperty = materialProperties.AddOrGetTextureProperty("_Decal", true);
 
             _fillEnabledProperty = materialProperties.AddOrGetProperty<MaterialKeywordProperty>("DECAL_FILL");
@@ -130,7 +135,22 @@ namespace ConformalDecals {
             text = newText;
             _font = newFont;
             _style = newStyle;
-            UpdateTextRecursive();
+            UpdateTextures();
+            UpdateScale();
+            UpdateTargets();
+
+            foreach (var counterpart in part.symmetryCounterparts) {
+                var decal = counterpart.GetComponent<ModuleConformalText>();
+                decal.text = text;
+                decal._font = _font;
+                decal._style = _style;
+
+                decal._currentJob = _currentJob;
+                decal._currentText = _currentText;
+                decal.UpdateTextures();
+                decal.UpdateScale();
+                decal.UpdateTargets();
+            }
         }
 
         public void OnFillColorUpdate(Color rgb, Util.ColorHSV hsv) {
@@ -207,20 +227,7 @@ namespace ConformalDecals {
             outlineColor = _outlineColor.ToHexString();
         }
 
-        public void OnAfterDeserialize() {
-            _font = DecalConfig.GetFont(fontName);
-            _style = new DecalTextStyle((FontStyles) style, vertical, lineSpacing, charSpacing);
-            
-            if (!ParseUtil.TryParseColor32(fillColor, out _fillColor)) {
-                Logging.LogWarning($"Improperly formatted color value for fill: '{fillColor}'");
-                _fillColor = Color.magenta;
-            }
-
-            if (!ParseUtil.TryParseColor32(outlineColor, out _outlineColor)) {
-                Logging.LogWarning($"Improperly formatted color value for outline: '{outlineColor}'");
-                _outlineColor = Color.magenta;
-            }
-        }
+        public void OnAfterDeserialize() {}
 
         public override void OnDestroy() {
             if (HighLogic.LoadedSceneIsGame && _currentText != null) TextRenderer.UnregisterText(_currentText);
@@ -237,41 +244,16 @@ namespace ConformalDecals {
             base.OnDetach();
         }
 
-        private void UpdateTextRecursive() {
-            UpdateText();
-
-            foreach (var counterpart in part.symmetryCounterparts) {
-                var decal = counterpart.GetComponent<ModuleConformalText>();
-                decal.text = text;
-                decal._font = _font;
-                decal._style = _style;
-
-                decal._currentJob = _currentJob;
-                decal._currentText = _currentText;
-                decal.UpdateText();
-            }
-        }
-
-        private void UpdateText() {
+        protected override void UpdateTextures() {
             // Render text
             var newText = new DecalText(text, _font, _style);
             var output = TextRenderer.UpdateTextNow(_currentText, newText);
             _currentText = newText;
 
-            UpdateTexture(output);
-
-            // TODO: ASYNC RENDERING
-            // var newText = new DecalText(text, _font, _style);
-            // _currentJob = TextRenderer.UpdateText(_currentText, newText, UpdateTexture);
-            // _currentText = newText;
-        }
-
-        public void UpdateTexture(TextRenderOutput output) {
             _decalTextureProperty.Texture = output.Texture;
             _decalTextureProperty.SetTile(output.Window);
 
             UpdateMaterials();
-            UpdateProjection();
         }
 
         protected override void UpdateMaterials() {

@@ -220,10 +220,15 @@ namespace ConformalDecals {
 
             if (HighLogic.LoadedSceneIsEditor) {
                 UpdateTweakables();
+                UpdateTextures();
+                UpdateScale();
+                UpdateTargets();
             }
-
-            if (HighLogic.LoadedSceneIsGame) {
-                UpdateProjection();
+            else if (HighLogic.LoadedSceneIsFlight) {
+                UpdateTextures();
+                UpdateScale();
+                UpdateTargets();
+                //TODO: Target loading
             }
             else {
                 scale = defaultScale;
@@ -231,6 +236,9 @@ namespace ConformalDecals {
                 opacity = defaultOpacity;
                 cutoff = defaultCutoff;
                 wear = defaultWear;
+                
+                UpdateTextures();
+                UpdateScale();
 
                 // QUEUE PART FOR ICON FIXING IN VAB
                 DecalIconFixer.QueuePart(part.name);
@@ -239,7 +247,8 @@ namespace ConformalDecals {
 
         /// <inheritdoc />
         public override void OnIconCreate() {
-            UpdateProjection();
+            UpdateTextures();
+            UpdateScale();
         }
 
         /// <inheritdoc />
@@ -306,11 +315,13 @@ namespace ConformalDecals {
         protected void OnProjectionTweakEvent(BaseField field, object obj) {
             // scale or depth values have been changed, so update scale
             // and update projection matrices if attached
-            UpdateProjection();
+            UpdateScale();
+            UpdateTargets();
 
             foreach (var counterpart in part.symmetryCounterparts) {
                 var decal = counterpart.GetComponent<ModuleConformalDecal>();
-                decal.UpdateProjection();
+                decal.UpdateScale();
+                decal.UpdateTargets();
             }
         }
 
@@ -333,7 +344,7 @@ namespace ConformalDecals {
 
         protected void OnVariantApplied(Part eventPart, PartVariant variant) {
             if (_isAttached && eventPart == part.parent) {
-                UpdateProjection();
+                UpdateTargets();
             }
         }
 
@@ -348,7 +359,8 @@ namespace ConformalDecals {
                     break;
                 case ConstructionEventType.PartOffsetting:
                 case ConstructionEventType.PartRotating:
-                    UpdateProjection();
+                    UpdateScale();
+                    UpdateTargets();
                     break;
             }
         }
@@ -379,7 +391,8 @@ namespace ConformalDecals {
             Camera.onPreCull += Render;
 
             UpdateMaterials();
-            UpdateProjection();
+            UpdateScale();
+            UpdateTargets();
         }
 
         protected virtual void OnDetach() {
@@ -395,57 +408,12 @@ namespace ConformalDecals {
             Camera.onPreCull -= Render;
 
             UpdateMaterials();
-            UpdateProjection();
+            UpdateScale();
         }
 
-        protected void UpdateProjection() {
-            // Update projection targets
-            if (_targets == null) {
-                _targets = new List<ProjectionTarget>();
-            }
-            else {
-                _targets.Clear();
-            }
+        protected void UpdateScale() {
 
-            if (_isAttached) {
-                IEnumerable<Part> targetParts;
-                if (projectMultiple) {
-                    if (HighLogic.LoadedSceneIsFlight) {
-                        targetParts = part.vessel.parts;
-                    }
-                    else {
-                        targetParts = EditorLogic.fetch.ship.parts;
-                    }
-                }
-                else {
-                    targetParts = new[] {part.parent};
-                }
-
-                foreach (var targetPart in targetParts) {
-                    if (targetPart.GetComponent<ModuleConformalDecal>() != null) continue; // skip other decals
-
-                    foreach (var targetRenderer in targetPart.FindModelComponents<MeshRenderer>()) {
-                        // skip disabled renderers
-                        if (targetRenderer.gameObject.activeInHierarchy == false) continue;
-
-                        // skip blacklisted shaders
-                        if (DecalConfig.IsBlacklisted(targetRenderer.material.shader)) continue;
-
-                        var meshFilter = targetRenderer.GetComponent<MeshFilter>();
-                        if (meshFilter == null) continue; // object has a meshRenderer with no filter, invalid
-                        var mesh = meshFilter.sharedMesh;
-                        if (mesh == null) continue; // object has a null mesh, invalid
-
-                        // create new ProjectionTarget to represent the renderer
-                        var target = new ProjectionTarget(targetPart, targetRenderer, mesh);
-
-                        // add the target to the list
-                        _targets.Add(target);
-                    }
-                }
-            }
-
-            // Update projection matrix
+            // Update scale and depth
             scale = Mathf.Max(0.01f, scale);
             depth = Mathf.Max(0.01f, depth);
             var aspectRatio = materialProperties.AspectRatio;
@@ -479,17 +447,20 @@ namespace ConformalDecals {
             materialProperties.UpdateScale(size);
 
             if (_isAttached) {
+                // Update projection targets
+                if (_targets == null) {
+                    _targets = new List<ProjectionTarget>();
+                }
+                else {
+                    _targets.Clear();
+                }
+
                 // update orthogonal matrix
                 _orthoMatrix = Matrix4x4.identity;
                 _orthoMatrix[0, 3] = 0.5f;
                 _orthoMatrix[1, 3] = 0.5f;
 
                 decalProjectorTransform.localScale = new Vector3(size.x, size.y, depth);
-
-                // update projection
-                foreach (var target in _targets) {
-                    target.Project(_orthoMatrix, decalProjectorTransform, _boundsRenderer.bounds, useBaseNormal);
-                }
             }
             else {
                 // rescale preview model
@@ -501,6 +472,41 @@ namespace ConformalDecals {
                 }
             }
         }
+
+        protected void UpdateTargets() {
+            if (!_isAttached) return;
+
+            IEnumerable<Part> targetParts;
+            if (projectMultiple) {
+                targetParts = HighLogic.LoadedSceneIsFlight ? part.vessel.parts : EditorLogic.fetch.ship.parts;
+            }
+            else {
+                targetParts = new[] {part.parent};
+            }
+
+            foreach (var targetPart in targetParts) {
+                if (targetPart.GetComponent<ModuleConformalDecal>() != null) continue; // skip other decals
+
+                foreach (var renderer in targetPart.FindModelComponents<MeshRenderer>()) {
+                    var target = renderer.transform;
+                    var filter = target.GetComponent<MeshFilter>();
+
+                    // check if the target has any missing data
+                    if (!ProjectionTarget.ValidateTarget(target, renderer, filter)) continue;
+
+                    // check bounds for intersection
+                    if (_boundsRenderer.bounds.Intersects(renderer.bounds)) {
+                        // create new ProjectionTarget to represent the renderer
+                        var projectionTarget = new ProjectionTarget(targetPart, target, renderer, filter, _orthoMatrix, decalProjectorTransform, useBaseNormal);
+
+                        // add the target to the list
+                        _targets.Add(projectionTarget);
+                    }
+                }
+            }
+        }
+
+        protected virtual void UpdateTextures() { }
 
         protected virtual void UpdateMaterials() {
             materialProperties.UpdateMaterials();
