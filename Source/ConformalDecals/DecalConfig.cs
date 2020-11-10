@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using ConformalDecals.Text;
 using ConformalDecals.Util;
 using TMPro;
-using UniLinq;
 using UnityEngine;
 
 namespace ConformalDecals {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using ConformalDecals.MaterialProperties;
 using ConformalDecals.Util;
+using UniLinq;
 using UnityEngine;
 
 namespace ConformalDecals {
@@ -236,7 +237,7 @@ namespace ConformalDecals {
                 opacity = defaultOpacity;
                 cutoff = defaultCutoff;
                 wear = defaultWear;
-                
+
                 UpdateTextures();
                 UpdateScale();
 
@@ -343,7 +344,10 @@ namespace ConformalDecals {
         }
 
         protected void OnVariantApplied(Part eventPart, PartVariant variant) {
-            if (_isAttached && eventPart == part.parent) {
+            if (_isAttached && eventPart != null) {
+                if (projectMultiple && eventPart != part.parent) return;
+                else if (!_targets.Select(o => o.targetPart).Contains(eventPart)) return;
+
                 UpdateTargets();
             }
         }

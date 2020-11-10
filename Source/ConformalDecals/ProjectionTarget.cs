@@ -8,8 +8,8 @@ using UnityEngine.Rendering;
 namespace ConformalDecals {
     public class ProjectionTarget {
         // Target object data
-        private readonly Transform _target;
-        private readonly Part      _targetPart;
+        public readonly  Transform target;
+        public readonly  Part      targetPart;
         private readonly Mesh      _targetMesh;
         private readonly Matrix4x4 _decalMatrix;
         private readonly Vector3   _decalNormal;
@@ -22,8 +22,8 @@ namespace ConformalDecals {
         public ProjectionTarget(Part targetPart, Transform target, MeshRenderer renderer, MeshFilter filter,
             Matrix4x4 orthoMatrix, Transform projector, bool useBaseNormal) {
 
-            _targetPart = targetPart;
-            _target = target;
+            this.targetPart = targetPart;
+            this.target = target;
             _targetMesh = filter.sharedMesh;
             _useBaseNormal = useBaseNormal;
             _decalMPB = new MaterialPropertyBlock();
@@ -41,22 +41,22 @@ namespace ConformalDecals {
             var flightID = (uint) ParseUtil.ParseInt(node, "part");
             var targetPath = ParseUtil.ParseString(node, "targetPath");
             var targetName = ParseUtil.ParseString(node, "targetName");
-            
+
             _decalMatrix = ParseUtil.ParseMatrix4x4(node, "decalMatrix");
             _decalNormal = ParseUtil.ParseVector3(node, "decalNormal");
             _decalTangent = ParseUtil.ParseVector3(node, "decalTangent");
             _useBaseNormal = useBaseNormal;
             _decalMPB = new MaterialPropertyBlock();
 
-            _targetPart = vessel[flightID];
-            if (_targetPart == null) throw new IndexOutOfRangeException("Vessel returned null part");
-            _target = LoadTransformPath(targetPath, _targetPart.transform);
-            if (_target.name != targetName) throw new FormatException("Target name does not match");
+            targetPart = vessel[flightID];
+            if (targetPart == null) throw new IndexOutOfRangeException("Vessel returned null part");
+            target = LoadTransformPath(targetPath, targetPart.transform);
+            if (target.name != targetName) throw new FormatException("Target name does not match");
 
-            var renderer = _target.GetComponent<MeshRenderer>();
-            var filter = _target.GetComponent<MeshFilter>();
+            var renderer = target.GetComponent<MeshRenderer>();
+            var filter = target.GetComponent<MeshFilter>();
 
-            if (!ValidateTarget(_target, renderer, filter)) throw new FormatException("Invalid target");
+            if (!ValidateTarget(target, renderer, filter)) throw new FormatException("Invalid target");
 
             _targetMesh = filter.sharedMesh;
 
@@ -85,17 +85,17 @@ namespace ConformalDecals {
             _decalMPB.SetFloat(PropertyIDs._RimFalloff, partMPB.GetFloat(PropertyIDs._RimFalloff));
             _decalMPB.SetColor(PropertyIDs._RimColor, partMPB.GetColor(PropertyIDs._RimColor));
 
-            Graphics.DrawMesh(_targetMesh, _target.localToWorldMatrix, decalMaterial, 0, camera, 0, _decalMPB, ShadowCastingMode.Off, true);
+            Graphics.DrawMesh(_targetMesh, target.localToWorldMatrix, decalMaterial, 0, camera, 0, _decalMPB, ShadowCastingMode.Off, true);
         }
 
         public ConfigNode Save() {
             var node = new ConfigNode("TARGET");
-            node.AddValue("part", _targetPart.flightID);
+            node.AddValue("part", targetPart.flightID);
             node.AddValue("decalMatrix", _decalMatrix);
             node.AddValue("decalNormal", _decalNormal);
             node.AddValue("decalTangent", _decalTangent);
-            node.AddValue("targetPath", SaveTransformPath(_target, _targetPart.transform)); // used to find the target transform
-            node.AddValue("targetName", _target.name); // used to validate the mesh has not changed since last load
+            node.AddValue("targetPath", SaveTransformPath(target, targetPart.transform)); // used to find the target transform
+            node.AddValue("targetName", target.name); // used to validate the mesh has not changed since last load
 
             return node;
         }
