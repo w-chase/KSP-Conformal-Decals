@@ -47,8 +47,7 @@
     </ItemGroup>
 
     <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-        <Exec Command="/bin/cp -v '$(OutDir)ConformalDecals.dll' '$(SolutionDir)../GameData/ConformalDecals/Plugins'" IgnoreExitCode="true"/>
-        <!--Fuck you MSBuild stop trying to run CMD.exe on macOS-->
+        <Exec Command="/bin/cp -v '$(OutDir)ConformalDecals.dll' '$(SolutionDir)../GameData/ConformalDecals/Plugins'"/>
     </Target>
 
 </Project>
