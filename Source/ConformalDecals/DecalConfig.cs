@@ -49,7 +49,7 @@ namespace ConformalDecals {
         public static bool SelectableInFlight => _selectableInFlight;
 
         public static IEnumerable<DecalFont> Fonts => _fontList.Values;
-        
+
         public static bool IsBlacklisted(Shader shader) {
             return IsBlacklisted(shader.name);
         }
@@ -91,7 +91,7 @@ namespace ConformalDecals {
             }
 
             var allFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-            
+
             foreach (var fontNode in node.GetNodes("FONT")) {
                 try {
                     var font = DecalFont.Parse(fontNode, allFonts);
@@ -111,12 +111,8 @@ namespace ConformalDecals {
             var colors = new[] {color, color, color, color};
 
             var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
-            for (var x = 0; x <= width; x++) {
-                for (var y = 0; y < height; y++) {
-                    tex.SetPixels32(colors);
-                }
-            }
 
+            tex.SetPixels32(colors);
             tex.Apply();
 
             return tex;
@@ -130,7 +126,7 @@ namespace ConformalDecals {
             var configs = GameDatabase.Instance.GetConfigs("CONFORMALDECALS");
 
             if (configs.Length > 0) {
-                Logging.Log("loading config");
+                Logging.Log("Loading config");
                 foreach (var config in configs) {
                     ParseConfig(config.config);
                 }
