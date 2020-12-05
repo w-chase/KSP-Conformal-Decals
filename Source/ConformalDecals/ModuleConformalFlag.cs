@@ -83,7 +83,7 @@ namespace ConformalDecals {
         }
 
         protected override void UpdateTextures() {
-            _flagTextureProperty ??= materialProperties.AddOrGetTextureProperty("_Decal");
+            _flagTextureProperty ??= materialProperties.AddOrGetTextureProperty("_Decal", true);
 
             base.UpdateTextures();
             if (useCustomFlag) {

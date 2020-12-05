@@ -50,8 +50,6 @@ namespace ConformalDecals {
 
         public static IEnumerable<DecalFont> Fonts => _fontList.Values;
         
-        public static DecalFont FallbackFont { get; private set; }
-
         public static bool IsBlacklisted(Shader shader) {
             return IsBlacklisted(shader.name);
         }
@@ -96,7 +94,7 @@ namespace ConformalDecals {
             
             foreach (var fontNode in node.GetNodes("FONT")) {
                 try {
-                    var font = new DecalFont(fontNode, allFonts);
+                    var font = DecalFont.Parse(fontNode, allFonts);
                     _fontList.Add(font.Name, font);
                 }
                 catch (Exception e) {

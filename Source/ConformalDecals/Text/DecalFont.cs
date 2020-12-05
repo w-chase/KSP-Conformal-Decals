@@ -46,21 +46,25 @@ namespace ConformalDecals.Text {
         public bool SmallCapsMask => (_fontStyleMask & FontStyles.SmallCaps) != 0;
 
 
-        public DecalFont(ConfigNode node, IEnumerable<TMP_FontAsset> fontAssets) {
+        public static DecalFont Parse(ConfigNode node, IEnumerable<TMP_FontAsset> fontAssets) {
             if (node == null) throw new ArgumentNullException(nameof(node));
             if (fontAssets == null) throw new ArgumentNullException(nameof(fontAssets));
 
+            var font = ScriptableObject.CreateInstance<DecalFont>();
+
             var name = ParseUtil.ParseString(node, "name");
-            _fontAsset = fontAssets.First(o => o.name == name);
-            if (FontAsset == null) {
+            var fontAsset = fontAssets.First(o => o.name == name);
+            if (fontAsset == null) {
                 throw new FormatException($"Could not find font asset named {name}");
             }
 
-            _title = ParseUtil.ParseString(node, "title", true, name);
-            _fontStyle = (FontStyles) ParseUtil.ParseInt(node, "style", true);
-            _fontStyleMask = (FontStyles) ParseUtil.ParseInt(node, "styleMask", true);
-        }
+            font._fontAsset = fontAsset;
+            font._title = ParseUtil.ParseString(node, "title", true, name);
+            font._fontStyle = (FontStyles) ParseUtil.ParseInt(node, "style", true);
+            font._fontStyleMask = (FontStyles) ParseUtil.ParseInt(node, "styleMask", true);
 
+            return font;
+        }
 
         public void SetupSample(TMP_Text tmp) {
             if (tmp == null) throw new ArgumentNullException(nameof(tmp));
