@@ -211,7 +211,7 @@ namespace ConformalDecals {
             }
         }
 
-        /// Called when the decal is destroyed
+        /// Called by Unity when the decal is destroyed
         public virtual void OnDestroy() {
             // remove GameEvents
             if (HighLogic.LoadedSceneIsEditor) {
@@ -252,15 +252,15 @@ namespace ConformalDecals {
             }
         }
 
-        /// Called when a new variant is applied in the editor
+        /// Called by KSP when a new variant is applied in the editor
         protected void OnVariantApplied(Part eventPart, PartVariant variant) {
-            if (_isAttached && eventPart != null && (!projectMultiple || eventPart == part.parent)) {
+            if (_isAttached && eventPart != null && (projectMultiple || eventPart == part.parent)) {
                 _targets.Remove(eventPart);
                 UpdateProjection();
             }
         }
 
-        /// Called when an editor event occurs
+        /// Called by KSP when an editor event occurs
         protected void OnEditorEvent(ConstructionEventType eventType, Part eventPart) {
             switch (eventType) {
                 case ConstructionEventType.PartAttached:
@@ -277,50 +277,53 @@ namespace ConformalDecals {
         }
 
         /// Called when a part is transformed in the editor
-        protected void OnPartTransformed(Part eventPart) {
-            if (part == eventPart || part.symmetryCounterparts.Contains(eventPart)) {
+        protected void OnPartTransformed(Part eventPart, bool firstcall = true) {
+            if (part == eventPart || (firstcall && part.symmetryCounterparts.Contains(eventPart))) {
+                // if this is the top-level call (original event part is a decal) then update symmetry counterparts, otherwise just update this
                 UpdateProjection();
             }
-            else if (_isAttached && projectMultiple) {
+            else if (_isAttached) {
                 UpdatePartTarget(eventPart, _boundsRenderer.bounds);
                 // recursively call for child parts
                 foreach (var child in eventPart.children) {
-                    OnPartTransformed(child);
+                    OnPartTransformed(child, false);
                 }
             }
         }
 
         /// Called when a part is attached in the editor
-        protected void OnPartAttached(Part eventPart) {
-            if (part == eventPart || part.symmetryCounterparts.Contains(eventPart)) {
+        protected void OnPartAttached(Part eventPart, bool firstcall = true) {
+            if (part == eventPart || (firstcall && part.symmetryCounterparts.Contains(eventPart))) {
+                // if this is the top-level call (original event part is a decal) then update symmetry counterparts, otherwise just update this
                 OnAttach();
             }
-            else if (_isAttached && projectMultiple) {
+            else {
                 UpdatePartTarget(eventPart, _boundsRenderer.bounds);
                 // recursively call for child parts
                 foreach (var child in eventPart.children) {
-                    OnPartAttached(child);
+                    OnPartAttached(child, false);
                 }
             }
         }
 
         /// Called when a part is detached in the editor
-        protected void OnPartDetached(Part eventPart) {
-            if (part == eventPart || part.symmetryCounterparts.Contains(eventPart)) {
+        protected void OnPartDetached(Part eventPart, bool firstcall = true) {
+            if (part == eventPart || (firstcall && part.symmetryCounterparts.Contains(eventPart))) {
+                // if this is the top-level call (original event part is a decal) then update symmetry counterparts, otherwise just update this
                 OnDetach();
             }
-            else if (_isAttached && projectMultiple) {
+            else if (_isAttached) {
                 _targets.Remove(eventPart);
                 // recursively call for child parts
                 foreach (var child in eventPart.children) {
-                    OnPartDetached(child);
+                    OnPartDetached(child, false);
                 }
             }
         }
 
         /// Called when part `willDie` will be destroyed
         protected void OnPartWillDie(Part willDie) {
-            if (willDie == part.parent) {
+            if (willDie == part.parent && willDie != null) {
                 this.Log("Parent part about to be destroyed! Killing decal part.");
                 part.Die();
             }
@@ -331,6 +334,7 @@ namespace ConformalDecals {
 
         /// Called when decal is attached to a new part
         protected virtual void OnAttach() {
+            if (_isAttached) return;
             if (part.parent == null) {
                 this.LogError("Attach function called but part has no parent!");
                 _isAttached = false;
@@ -355,6 +359,7 @@ namespace ConformalDecals {
 
         /// Called when decal is detached from its parent part
         protected virtual void OnDetach() {
+            if (!_isAttached) return;
             _isAttached = false;
 
             // unhide model
