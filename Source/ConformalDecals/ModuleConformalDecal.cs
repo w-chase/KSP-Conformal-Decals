@@ -71,16 +71,19 @@ namespace ConformalDecals {
         [KSPField(guiName = "#LOC_ConformalDecals_gui-opacity", guiActive = false, guiActiveEditor = true, isPersistant = true, guiFormat = "P0"),
          UI_FloatRange()]
         public float opacity = 1.0f;
+
         private MaterialFloatProperty _opacityProperty;
 
         [KSPField(guiName = "#LOC_ConformalDecals_gui-cutoff", guiActive = false, guiActiveEditor = true, isPersistant = true, guiFormat = "P0"),
          UI_FloatRange()]
         public float cutoff = 0.5f;
+
         private MaterialFloatProperty _cutoffProperty;
 
         [KSPField(guiName = "#LOC_ConformalDecals_gui-wear", guiActive = false, guiActiveEditor = true, isPersistant = true, guiFormat = "F0"),
          UI_FloatRange()]
         public float wear = 100;
+
         private MaterialFloatProperty _wearProperty;
 
         [KSPField(guiName = "#LOC_ConformalDecals_gui-multiproject", guiActive = false, guiActiveEditor = true, isPersistant = true),
@@ -380,36 +383,38 @@ namespace ConformalDecals {
         /// Load any settings from the decal config
         protected virtual void LoadDecal(ConfigNode node) {
             // PARSE TRANSFORMS
-            decalFrontTransform = part.FindModelTransform(decalFront);
-            if (decalFrontTransform == null) throw new FormatException($"Could not find decalFront transform: '{decalFront}'.");
+            if (!HighLogic.LoadedSceneIsGame) {
+                decalFrontTransform = part.FindModelTransform(decalFront);
+                if (decalFrontTransform == null) throw new FormatException($"Could not find decalFront transform: '{decalFront}'.");
 
-            decalBackTransform = part.FindModelTransform(decalBack);
-            if (decalBackTransform == null) throw new FormatException($"Could not find decalBack transform: '{decalBack}'.");
+                decalBackTransform = part.FindModelTransform(decalBack);
+                if (decalBackTransform == null) throw new FormatException($"Could not find decalBack transform: '{decalBack}'.");
 
-            decalModelTransform = part.FindModelTransform(decalModel);
-            if (decalModelTransform == null) throw new FormatException($"Could not find decalModel transform: '{decalModel}'.");
+                decalModelTransform = part.FindModelTransform(decalModel);
+                if (decalModelTransform == null) throw new FormatException($"Could not find decalModel transform: '{decalModel}'.");
 
-            decalProjectorTransform = part.FindModelTransform(decalProjector);
-            if (decalProjectorTransform == null) throw new FormatException($"Could not find decalProjector transform: '{decalProjector}'.");
+                decalProjectorTransform = part.FindModelTransform(decalProjector);
+                if (decalProjectorTransform == null) throw new FormatException($"Could not find decalProjector transform: '{decalProjector}'.");
 
-            decalColliderTransform = part.FindModelTransform(decalCollider);
-            if (decalColliderTransform == null) throw new FormatException($"Could not find decalCollider transform: '{decalCollider}'.");
+                decalColliderTransform = part.FindModelTransform(decalCollider);
+                if (decalColliderTransform == null) throw new FormatException($"Could not find decalCollider transform: '{decalCollider}'.");
 
-            // SETUP BACK MATERIAL
-            if (updateBackScale) {
-                var backRenderer = decalBackTransform.GetComponent<MeshRenderer>();
-                if (backRenderer == null) {
-                    this.LogError($"Specified decalBack transform {decalBack} has no renderer attached! Setting updateBackScale to false.");
-                    updateBackScale = false;
-                }
-                else {
-                    backMaterial = backRenderer.material;
-                    if (backMaterial == null) {
-                        this.LogError($"Specified decalBack transform {decalBack} has a renderer but no material! Setting updateBackScale to false.");
+                // SETUP BACK MATERIAL
+                if (updateBackScale) {
+                    var backRenderer = decalBackTransform.GetComponent<MeshRenderer>();
+                    if (backRenderer == null) {
+                        this.LogError($"Specified decalBack transform {decalBack} has no renderer attached! Setting updateBackScale to false.");
                         updateBackScale = false;
                     }
                     else {
-                        if (backTextureBaseScale == default) backTextureBaseScale = backMaterial.GetTextureScale(PropertyIDs._MainTex);
+                        backMaterial = backRenderer.material;
+                        if (backMaterial == null) {
+                            this.LogError($"Specified decalBack transform {decalBack} has a renderer but no material! Setting updateBackScale to false.");
+                            updateBackScale = false;
+                        }
+                        else {
+                            if (backTextureBaseScale == default) backTextureBaseScale = backMaterial.GetTextureScale(PropertyIDs._MainTex);
+                        }
                     }
                 }
             }
@@ -553,7 +558,7 @@ namespace ConformalDecals {
             _opacityProperty.value = opacity;
             _cutoffProperty.value = cutoff;
             _wearProperty.value = wear;
-            
+
             materialProperties.UpdateMaterials();
 
             _decalMaterial = materialProperties.DecalMaterial;
@@ -598,14 +603,14 @@ namespace ConformalDecals {
             // update material scale
             materialProperties.UpdateScale(size);
 
+            decalProjectorTransform.localScale = new Vector3(size.x, size.y, depth);
+
             if (_isAttached) {
                 // update orthogonal matrix
                 _orthoMatrix = Matrix4x4.identity;
                 _orthoMatrix[0, 3] = 0.5f;
                 _orthoMatrix[1, 3] = 0.5f;
 
-                decalProjectorTransform.localScale = new Vector3(size.x, size.y, depth);
-                
                 var projectionBounds = _boundsRenderer.bounds;
 
                 // disable all targets
